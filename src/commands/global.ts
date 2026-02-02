@@ -4,7 +4,10 @@ import { resolve } from 'path'
 import logger from '../utils/logger'
 import { exec, execStream } from '../utils/shell'
 
-const INSTALL_PATH = '/usr/local/bin/faas'
+const isWindows = process.platform === 'win32'
+const INSTALL_PATH = isWindows
+  ? 'C:\\Program Files\\faas\\faas.exe'
+  : '/usr/local/bin/faas'
 
 export async function global(): Promise<boolean> {
   logger.title('Installing FAAS globally')
@@ -22,22 +25,40 @@ export async function global(): Promise<boolean> {
 
   logger.step(`Installing to ${INSTALL_PATH}...`)
 
-  // Check if we have write access (need sudo)
-  const testResult = await exec('test', ['-w', '/usr/local/bin'])
-  const needsSudo = !testResult.success
-
-  if (needsSudo) {
-    logger.info('Requires sudo for /usr/local/bin')
-    const exitCode = await execStream('sudo', ['cp', currentExe, INSTALL_PATH])
-    if (exitCode !== 0) {
-      logger.error('Failed to install globally')
+  if (isWindows) {
+    // Windows installation
+    const { mkdir, copyFile } = await import('fs/promises')
+    const { dirname } = await import('path')
+    try {
+      await mkdir(dirname(INSTALL_PATH), { recursive: true })
+      await copyFile(currentExe, INSTALL_PATH)
+      logger.info('Add to PATH: C:\\Program Files\\faas')
+    } catch (err) {
+      logger.error('Failed to install. Try running as Administrator.')
       return false
     }
-    await execStream('sudo', ['chmod', '+x', INSTALL_PATH])
   } else {
-    const { copyFile, chmod } = await import('fs/promises')
-    await copyFile(currentExe, INSTALL_PATH)
-    await chmod(INSTALL_PATH, 0o755)
+    // Unix installation
+    const testResult = await exec('test', ['-w', '/usr/local/bin'])
+    const needsSudo = !testResult.success
+
+    if (needsSudo) {
+      logger.info('Requires sudo for /usr/local/bin')
+      const exitCode = await execStream('sudo', [
+        'cp',
+        currentExe,
+        INSTALL_PATH,
+      ])
+      if (exitCode !== 0) {
+        logger.error('Failed to install globally')
+        return false
+      }
+      await execStream('sudo', ['chmod', '+x', INSTALL_PATH])
+    } else {
+      const { copyFile, chmod } = await import('fs/promises')
+      await copyFile(currentExe, INSTALL_PATH)
+      await chmod(INSTALL_PATH, 0o755)
+    }
   }
 
   logger.newline()
@@ -63,18 +84,28 @@ export async function uninstall(): Promise<boolean> {
 
   logger.step(`Removing ${INSTALL_PATH}...`)
 
-  const testResult = await exec('test', ['-w', '/usr/local/bin'])
-  const needsSudo = !testResult.success
-
-  if (needsSudo) {
-    const exitCode = await execStream('sudo', ['rm', INSTALL_PATH])
-    if (exitCode !== 0) {
-      logger.error('Failed to uninstall')
+  if (isWindows) {
+    const { rm } = await import('fs/promises')
+    try {
+      await rm(INSTALL_PATH)
+    } catch (err) {
+      logger.error('Failed to uninstall. Try running as Administrator.')
       return false
     }
   } else {
-    const { rm } = await import('fs/promises')
-    await rm(INSTALL_PATH)
+    const testResult = await exec('test', ['-w', '/usr/local/bin'])
+    const needsSudo = !testResult.success
+
+    if (needsSudo) {
+      const exitCode = await execStream('sudo', ['rm', INSTALL_PATH])
+      if (exitCode !== 0) {
+        logger.error('Failed to uninstall')
+        return false
+      }
+    } else {
+      const { rm } = await import('fs/promises')
+      await rm(INSTALL_PATH)
+    }
   }
 
   logger.newline()

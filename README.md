@@ -34,7 +34,27 @@ Download the pre-built binary for your platform from the [releases page](https:/
 # macOS (Apple Silicon)
 curl -L https://github.com/your-repo/faas/releases/latest/download/faas-macos-arm64 -o faas
 chmod +x faas
-sudo mv faas /usr/local/bin/
+./faas global  # Installs to /usr/local/bin (requires sudo)
+
+# macOS (Intel)
+curl -L https://github.com/your-repo/faas/releases/latest/download/faas-macos-x64 -o faas
+chmod +x faas
+./faas global
+
+# Linux (x64)
+curl -L https://github.com/your-repo/faas/releases/latest/download/faas-linux-x64 -o faas
+chmod +x faas
+./faas global
+
+# Linux (ARM64)
+curl -L https://github.com/your-repo/faas/releases/latest/download/faas-linux-arm64 -o faas
+chmod +x faas
+./faas global
+
+# Windows (PowerShell as Administrator)
+Invoke-WebRequest -Uri https://github.com/your-repo/faas/releases/latest/download/faas-windows-x64.exe -OutFile faas.exe
+.\faas.exe global
+# Then add C:\Program Files\faas to your PATH
 ```
 
 ### From Source
@@ -120,6 +140,8 @@ faas init --runtime python
 | `run`                     | `dev` | Run function locally                    |
 | `publish`                 | `p`   | Build Docker container                  |
 | `doctor [runtime]`        |       | Check runtime dependencies              |
+| `global`                  |       | Install faas globally (requires sudo)   |
+| `uninstall`               |       | Remove global installation              |
 | `help`                    |       | Show help message                       |
 | `version`                 |       | Show version                            |
 
