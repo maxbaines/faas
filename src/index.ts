@@ -6,6 +6,7 @@ import { publish } from './commands/publish'
 import { doctor } from './commands/doctor'
 import { run } from './commands/run'
 import { init } from './commands/init'
+import { global, uninstall } from './commands/global'
 import { getRuntimeNames } from './runtimes'
 import logger from './utils/logger'
 
@@ -25,6 +26,8 @@ Commands:
   run, dev                     Run function locally
   publish, p                   Build Docker container
   doctor [runtime]             Check runtime dependencies
+  global                       Install faas globally (requires sudo)
+  uninstall                    Remove global installation
   help                         Show this help message
   version                      Show version
 
@@ -162,6 +165,16 @@ async function main() {
       case 'doctor':
         const doctorSuccess = await doctor(positionalArgs[0])
         process.exit(doctorSuccess ? 0 : 1)
+        break
+
+      case 'global':
+        const globalSuccess = await global()
+        process.exit(globalSuccess ? 0 : 1)
+        break
+
+      case 'uninstall':
+        const uninstallSuccess = await uninstall()
+        process.exit(uninstallSuccess ? 0 : 1)
         break
 
       default:
