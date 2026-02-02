@@ -48,15 +48,15 @@ export async function doctor(runtimeName?: string): Promise<boolean> {
     allGood = false
   }
 
-  // Pack CLI (buildpacks)
+  // Pack CLI (buildpacks) - optional, only needed for 'faas publish'
   const packInstalled = await isPackAvailable()
   if (packInstalled) {
     const version = await getPackVersion()
     logger.success(`pack: ${version}`)
   } else {
-    logger.error('pack: not installed')
+    logger.warn('pack: not installed (optional, needed for faas publish)')
     logger.dim(`  ${PACK_INSTALL_HINT}`)
-    allGood = false
+    // Don't set allGood = false - pack is optional
   }
 
   logger.newline()
