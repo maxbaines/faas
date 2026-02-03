@@ -13,6 +13,15 @@ export const java = createRuntime({
   checkArgs: ['--version'],
   installHint:
     'Install Java JDK from https://adoptium.net or use: brew install openjdk',
+  buildTools: [
+    {
+      name: 'Maven',
+      command: 'mvn',
+      args: ['--version'],
+      installHint:
+        'Install Maven from https://maven.apache.org or use: brew install maven',
+    },
+  ],
   filePatterns: ['pom.xml', 'build.gradle'],
   runCommand: ['mvn', 'function:run'],
   dockerfile: `FROM maven:3.9-eclipse-temurin-17 AS builder
@@ -48,7 +57,7 @@ CMD ["java", "-jar", "/app.jar"]
     <dependency>
       <groupId>com.google.cloud.functions</groupId>
       <artifactId>functions-framework-api</artifactId>
-      <version>1.1.2</version>
+      <version>1.1.4</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

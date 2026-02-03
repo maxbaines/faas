@@ -5,7 +5,7 @@ import { mkdir, writeFile } from 'fs/promises'
 import { join, resolve, dirname } from 'path'
 import logger from '../utils/logger'
 import * as git from '../utils/git'
-import { execStream } from '../utils/shell'
+import { commandExists, execStream } from '../utils/shell'
 import { getRuntime, getRuntimeNames } from '../runtimes'
 
 export interface CreateOptions {
@@ -98,6 +98,24 @@ export async function create(
     logger.step('Installing dependencies...')
     for (const cmd of template.postCreate) {
       const [command, ...args] = cmd.split(' ')
+
+      // Check if the command exists before running
+      const cmdExists = await commandExists(command)
+      if (!cmdExists) {
+        // Find the matching build tool hint
+        const buildToolsStatus = await runtime.getBuildToolsStatus()
+        const matchingTool = buildToolsStatus.find(
+          (bt) => bt.tool.command === command,
+        )
+        if (matchingTool) {
+          logger.warn(`Skipping: ${cmd} (${command} not found)`)
+          logger.dim(`  ${matchingTool.tool.installHint}`)
+        } else {
+          logger.warn(`Skipping: ${cmd} (${command} not found in PATH)`)
+        }
+        continue
+      }
+
       logger.dim(`  Running: ${cmd}`)
       const exitCode = await execStream(command, args, { cwd: targetDir })
       if (exitCode !== 0) {

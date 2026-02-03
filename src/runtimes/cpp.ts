@@ -13,6 +13,15 @@ export const cpp = createRuntime({
   checkArgs: ['--version'],
   installHint:
     'Install g++ via Xcode Command Line Tools or use: brew install gcc',
+  buildTools: [
+    {
+      name: 'CMake',
+      command: 'cmake',
+      args: ['--version'],
+      installHint:
+        'Install CMake from https://cmake.org or use: brew install cmake',
+    },
+  ],
   filePatterns: ['CMakeLists.txt', '*.cpp'],
   runCommand: ['./build/hello_world'],
   dockerfile: `FROM gcr.io/cloud-cpp-testing-resources/cpp-build-image:latest AS build

@@ -13,6 +13,14 @@ export const ruby = createRuntime({
   checkArgs: ['--version'],
   installHint:
     'Install Ruby from https://ruby-lang.org or use: brew install ruby',
+  buildTools: [
+    {
+      name: 'Bundler',
+      command: 'bundle',
+      args: ['--version'],
+      installHint: 'Install Bundler: gem install bundler',
+    },
+  ],
   filePatterns: ['Gemfile', 'app.rb'],
   runCommand: ['bundle', 'exec', 'functions-framework-ruby', '--target=hello'],
   dockerfile: `FROM ruby:3.2-slim

@@ -12,6 +12,15 @@ export const php = createRuntime({
   checkCommand: 'php',
   checkArgs: ['--version'],
   installHint: 'Install PHP from https://php.net or use: brew install php',
+  buildTools: [
+    {
+      name: 'Composer',
+      command: 'composer',
+      args: ['--version'],
+      installHint:
+        'Install Composer from https://getcomposer.org or use: brew install composer',
+    },
+  ],
   filePatterns: ['composer.json', 'index.php'],
   runCommand: [
     'php',

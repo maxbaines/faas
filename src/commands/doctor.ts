@@ -9,6 +9,7 @@ import {
   PACK_INSTALL_HINT,
 } from '../utils/pack'
 import { getAllRuntimes, getRuntime } from '../runtimes'
+import type { Runtime } from '../runtimes'
 
 export async function doctor(runtimeName?: string): Promise<boolean> {
   logger.title('FAAS Doctor')
@@ -72,13 +73,8 @@ export async function doctor(runtimeName?: string): Promise<boolean> {
     logger.info(`Checking ${runtime.displayName}...`)
     logger.newline()
 
-    const installed = await runtime.isInstalled()
-    if (installed) {
-      const version = await runtime.getVersion()
-      logger.success(`${runtime.displayName}: ${version}`)
-    } else {
-      logger.error(`${runtime.displayName}: not installed`)
-      logger.dim(`  ${runtime.installHint}`)
+    const runtimeOk = await checkRuntime(runtime)
+    if (!runtimeOk) {
       allGood = false
     }
   } else {
@@ -103,6 +99,35 @@ export async function doctor(runtimeName?: string): Promise<boolean> {
     logger.success('All checks passed!')
   } else {
     logger.warn('Some checks failed. See above for details.')
+  }
+
+  return allGood
+}
+
+async function checkRuntime(runtime: Runtime): Promise<boolean> {
+  let allGood = true
+
+  // Check main runtime
+  const installed = await runtime.isInstalled()
+  if (installed) {
+    const version = await runtime.getVersion()
+    logger.success(`${runtime.displayName}: ${version}`)
+  } else {
+    logger.error(`${runtime.displayName}: not installed`)
+    logger.dim(`  ${runtime.installHint}`)
+    allGood = false
+  }
+
+  // Check build tools
+  const buildToolsStatus = await runtime.getBuildToolsStatus()
+  for (const { tool, installed, version } of buildToolsStatus) {
+    if (installed) {
+      logger.success(`${tool.name}: ${version}`)
+    } else {
+      logger.error(`${tool.name}: not installed`)
+      logger.dim(`  ${tool.installHint}`)
+      allGood = false
+    }
   }
 
   return allGood
