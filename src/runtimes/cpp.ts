@@ -8,7 +8,7 @@ export const cpp = createRuntime({
   displayName: 'C++',
   repo: 'https://github.com/GoogleCloudPlatform/functions-framework-cpp',
   quickstartUrl:
-    'https://github.com/GoogleCloudPlatform/functions-framework-cpp/blob/main/examples/site/howto_local_development/README.md',
+    'https://github.com/GoogleCloudPlatform/functions-framework-cpp/blob/main/examples/site/howto_create_container/README.md',
   checkCommand: 'g++',
   checkArgs: ['--version'],
   installHint:
@@ -21,17 +21,56 @@ export const cpp = createRuntime({
       installHint:
         'Install CMake from https://cmake.org or use: brew install cmake',
     },
+    {
+      name: 'vcpkg',
+      command: 'vcpkg',
+      args: ['version'],
+      installHint:
+        'Install vcpkg: git clone https://github.com/microsoft/vcpkg && ./vcpkg/bootstrap-vcpkg.sh',
+    },
   ],
-  filePatterns: ['CMakeLists.txt', '*.cpp'],
-  runCommand: ['./build/hello_world'],
-  dockerfile: `FROM gcr.io/cloud-cpp-testing-resources/cpp-build-image:latest AS build
-WORKDIR /app
-COPY . .
-RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-RUN cmake --build build
+  filePatterns: ['CMakeLists.txt', '*.cc', '*.cpp', 'vcpkg.json'],
+  runCommand: ['./.build/hello_world'],
+  // Note: Primary build method is via pack build (buildpacks) in publish command
+  // This Dockerfile is for local docker build fallback
+  dockerfile: `# Multi-stage build for C++ Functions Framework
+# Recommended: Use 'pack build' with Google Cloud Buildpacks instead
 
-FROM gcr.io/distroless/cc-debian11
-COPY --from=build /app/build/hello_world /hello_world
+FROM ubuntu:22.04 AS build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \\
+    build-essential \\
+    cmake \\
+    git \\
+    curl \\
+    zip \\
+    unzip \\
+    tar \\
+    pkg-config \\
+    && rm -rf /var/lib/apt/lists/*
+
+# Install vcpkg
+WORKDIR /vcpkg
+RUN git clone https://github.com/microsoft/vcpkg.git . && \\
+    ./bootstrap-vcpkg.sh -disableMetrics
+
+# Build the function
+WORKDIR /app
+COPY vcpkg.json CMakeLists.txt ./
+COPY *.cc ./
+
+RUN cmake -S . -B .build \\
+    -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \\
+    -DCMAKE_BUILD_TYPE=Release
+
+RUN cmake --build .build
+
+# Runtime stage
+FROM gcr.io/distroless/cc-debian12
+COPY --from=build /app/.build/hello_world /hello_world
+ENV PORT=8080
+EXPOSE 8080
 CMD ["/hello_world"]
 `,
   template: (projectName: string) => ({
@@ -51,27 +90,81 @@ target_link_libraries(hello_world functions-framework-cpp::framework)
 
 namespace gcf = ::google::cloud::functions;
 
-gcf::Function HelloWorld() {
-  return gcf::MakeFunction([](gcf::HttpRequest const& /*request*/) {
-    return gcf::HttpResponse{}
-        .set_header("Content-Type", "text/plain")
-        .set_payload("Hello, World!\\n");
-  });
+// HTTP function handler
+gcf::HttpResponse hello_world_impl(gcf::HttpRequest const& /*request*/) {
+  return gcf::HttpResponse{}
+      .set_header("Content-Type", "text/plain")
+      .set_payload("Hello, World!\\n");
 }
 
-int main(int argc, char* argv[]) {
-  return gcf::Run(argc, argv, HelloWorld());
+// Function entry point - name must match GOOGLE_FUNCTION_TARGET
+gcf::Function hello_world() {
+  return gcf::MakeFunction(hello_world_impl);
 }
 `,
       'vcpkg.json': JSON.stringify(
         {
-          name: projectName,
+          name: projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
           version: '1.0.0',
           dependencies: ['functions-framework-cpp'],
         },
         null,
         2,
       ),
+      'README.md': `# ${projectName}
+
+A C++ function using the [Functions Framework for C++](https://github.com/GoogleCloudPlatform/functions-framework-cpp).
+
+## Local Development
+
+### Prerequisites
+
+- C++17 compatible compiler (GCC >= 8 or Clang >= 10)
+- CMake >= 3.10
+- vcpkg
+
+### Build locally
+
+\`\`\`bash
+# Configure with vcpkg
+cmake -S . -B .build -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+# Build
+cmake --build .build
+
+# Run
+./.build/hello_world --port 8080
+\`\`\`
+
+### Test
+
+\`\`\`bash
+curl http://localhost:8080
+\`\`\`
+
+## Build Container (Recommended)
+
+Use Google Cloud Buildpacks:
+
+\`\`\`bash
+pack build ${projectName.toLowerCase()} \\
+  --builder gcr.io/buildpacks/builder:v1 \\
+  --env GOOGLE_FUNCTION_TARGET=hello_world
+\`\`\`
+
+Or use the CLI:
+
+\`\`\`bash
+faas publish --target hello_world
+\`\`\`
+
+## Deploy
+
+\`\`\`bash
+# Run container
+docker run -p 8080:8080 ${projectName.toLowerCase()}
+\`\`\`
+`,
     },
     postCreate: [],
   }),
